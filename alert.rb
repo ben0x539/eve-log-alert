@@ -18,12 +18,11 @@ raise "no matching log file found" unless latest
 
 filename = latest
 
-system_names = ARGV.map{|arg| /\b#{arg}/i}
+system_names = ARGV.map{|arg| /\b#{arg}.*?\b/i}
 if system_names.empty?
   raise "no system names given"
 end
 
-puts "reading #{filename}"
 last_alert_sound = 0
 File.open(filename, "rb:UTF-16LE") do |file|
   file.seek(0, IO::SEEK_END)
@@ -35,7 +34,16 @@ File.open(filename, "rb:UTF-16LE") do |file|
     else
       line_buf << file.read().encode("UTF-8")
       *lines, line_buf = line_buf.split("\n", -1)
-      lines.delete_if { |line| !system_names.any? { |sys| sys.match(line)} }
+      lines.delete_if { |line|
+        !system_names.any? { |sys|
+          if sys.match(line)
+            line_ = line[(line.index('>') or 0)+1..-1]
+            line_.gsub!(sys, '')
+            line_.gsub!(/[\s.,!]+/, '')
+            ! /(cl(ea)?r|status\??|blue)$/.match(line_)
+          end
+        }
+      }
       lines.each do |line|
         # "[ 2013.04.15 14:53:52 ] "
         line.slice!(0, 24)
