@@ -33,14 +33,14 @@ File.open(filename, "rb:UTF-16LE") do |file|
       notifier.stop
     else
       line_buf << file.read().encode("UTF-8")
-      *lines, line_buf = line_buf.split("\n", -1)
+      *lines, line_buf = line_buf.split(/\r?\n/, -1)
       lines.delete_if { |line|
+        line_ = line[(line.index('>') or 0)+1..-1]
         !system_names.any? { |sys|
           if sys.match(line)
-            line_ = line[(line.index('>') or 0)+1..-1]
-            line_.gsub!(sys, '')
-            line_.gsub!(/[\s.,!]+/, '')
-            ! /(cl(ea)?r|status\??|blue)$/.match(line_)
+            line__ = line_.gsub(sys, '')
+            line__.gsub!(/[\s.,!]+/, '')
+            ! /(cl(ea)?r|status\??|blue)$/.match(line__)
           end
         }
       }
