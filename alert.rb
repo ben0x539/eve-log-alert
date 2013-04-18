@@ -35,7 +35,7 @@ File.open(filename, "rb:UTF-16LE") do |file|
       line_buf << file.read().encode("UTF-8")
       *lines, line_buf = line_buf.split(/\r?\n/, -1)
       lines.delete_if { |line|
-        line_ = line[(line.index('>') or 0)+1..-1]
+        line_ = line[(line.index('>') or 0)+2..-1]
         !system_names.any? { |sys|
           if sys.match(line)
             line__ = line_.gsub(sys, '')
@@ -46,7 +46,7 @@ File.open(filename, "rb:UTF-16LE") do |file|
       }
       lines.each do |line|
         # "[ 2013.04.15 14:53:52 ] "
-        line.slice!(0, 24)
+        line.slice!(0, 25)
       end
       unless lines.empty?
         system "notify-send", "#{LOG_PREFIX}: #{lines.join("\n")}"
