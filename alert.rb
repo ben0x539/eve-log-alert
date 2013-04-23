@@ -18,7 +18,7 @@ raise "no matching log file found" unless latest
 
 filename = latest
 
-system_names = ARGV.map{|arg| /\b#{arg}.*?\b/i}
+system_names = ARGV.map{|arg| /\b#{arg}\S*/i }
 if system_names.empty?
   raise "no system names given"
 end
