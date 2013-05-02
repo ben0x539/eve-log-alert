@@ -40,7 +40,7 @@ File.open(filename, "rb:UTF-16LE") do |file|
           if sys.match(line)
             line__ = line_.gsub(sys, '')
             line__.gsub!(/[\s.,!]+/, '')
-            ! /(cl(ea)?r|status\??|blue)$/.match(line__)
+            ! /(cl(ea)?r|status\??|blue)$/i.match(line__)
           end
         }
       }
