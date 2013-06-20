@@ -1,5 +1,5 @@
 LOG_DIR     = "#{ENV['HOME']}/EVE/logs/Chatlogs"
-LOG_PREFIX  = "DEKCFC"
+LOG_PREFIX  = "DEK.CFC"
 
 require 'rb-inotify'
 
