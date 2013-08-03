@@ -67,17 +67,18 @@ end
 
 class GameLogState
   FANCY_RAT_NAMES = ["Dread Gurista"]
-  NO_INC_DMG_TIME = 10
-  NO_OUT_DMG_TIME = 30
-  IDLE_TIME = [NO_OUT_DMG_TIME, NO_INC_DMG_TIME].max + 10
+  NO_INC_DMG_TIME =20
+  NO_OUT_DMG_TIME = 40
+  IDLE_TIME = 20
 
   def initialize()
     @last_incoming =
     @last_outgoing =
     @last_msg      =
       Time.now
-    @last_dg       = Time.at(0)
+    @last_idle = @last_dg = Time.at(0)
     @dmg_taken = []
+    @under_attack_since = nil
   end
 
   def feed(line)
@@ -102,8 +103,10 @@ class GameLogState
   def idle()
     @now = Time.now
     last = [@last_incoming, @last_outgoing].max
-    if @now - last > IDLE_TIME
+    if @now - last > IDLE_TIME && @now - @last_idle > 120
       notify("idling")
+      @last_idle = @now
+      @under_attack_since = nil
     end
   end
 
@@ -135,7 +138,9 @@ class GameLogState
     @dmg_taken.delete_if {|when_, _| @now - when_ > 10}
     @dmg_taken << [@now, dmg]
     sum = @dmg_taken.inject(0) {|acc, (_, dmg_)| acc+dmg_}
-    if @last_incoming > @last_outgoing + NO_OUT_DMG_TIME
+    @under_attack_since ||= @now
+    if @last_incoming > @last_outgoing + NO_OUT_DMG_TIME &&
+       @now - @under_attack_since > 20
       notify("receiving damage, but none dealt for #{NO_OUT_DMG_TIME}s")
     elsif dmg > 150
       notify("took #{dmg} in one shot")
