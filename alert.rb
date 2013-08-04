@@ -59,6 +59,7 @@ def listen(notifier, filename, *open_args, on_close)
 end
 
 def send_notification(msg)
+  puts "#{Time.now.strftime('%H:%M')}: #{msg}"
   system "notify-send", msg
   pid = Process.spawn("aplay", "alertsound",
                       [:in, :out, :err] => :close)
