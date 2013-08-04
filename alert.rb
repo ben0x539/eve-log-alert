@@ -135,7 +135,7 @@ class GameLogState
 
   def inc(who, dmg)
     @last_incoming = @now
-    @dmg_taken.delete_if {|when_, _| @now - when_ > 10}
+    @dmg_taken.delete_if {|when_, _| @now - when_ > 40}
     @dmg_taken << [@now, dmg]
     sum = @dmg_taken.inject(0) {|acc, (_, dmg_)| acc+dmg_}
     @under_attack_since ||= @now
@@ -144,8 +144,8 @@ class GameLogState
       notify("receiving damage, but none dealt for #{NO_OUT_DMG_TIME}s")
     elsif dmg > 150
       notify("took #{dmg} in one shot")
-    elsif sum / 10 > 50
-      notify("taking >50 dps")
+    elsif sum / 40 > 60
+      notify("taking >60 dps")
     end
   end
   def out(who, dmg)
