@@ -1,5 +1,5 @@
 INTEL_LOG_DIR    = "#{ENV['HOME']}/EVE/logs/Chatlogs"
-INTEL_LOG_PREFIX = "/DEK.CFC"
+INTEL_LOG_PREFIX = "DEK.CFC"
 GAME_LOG_DIR     = "#{ENV['HOME']}/EVE/logs/Gamelogs"
 
 require 'rb-inotify'
@@ -166,7 +166,7 @@ if system_names.empty?
 end
 
 intel_filename = find_latest(INTEL_LOG_DIR) { |path, date|
-  from_this_week(date) && path.include?(INTEL_LOG_PREFIX)
+  from_this_week(date) && path.include?("/#{INTEL_LOG_PREFIX}")
 }
 
 game_filename = find_latest(GAME_LOG_DIR) { |path, date|
