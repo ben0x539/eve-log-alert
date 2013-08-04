@@ -68,7 +68,7 @@ end
 
 class GameLogState
   FANCY_RAT_NAMES = ["Dread Gurista"]
-  NO_INC_DMG_TIME =20
+  NO_INC_DMG_TIME = 20
   NO_OUT_DMG_TIME = 40
   IDLE_TIME = 20
 
