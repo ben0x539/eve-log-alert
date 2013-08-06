@@ -22,6 +22,25 @@ def find_latest(dir)
   latest
 end
 
+def find_open_chatlog(dir, prefix)
+  path_prefix = "#{dir}/#{prefix}_"
+  found = nil
+  Dir.foreach('/proc') do |pid|
+    next unless pid.match(/^\d+$/)
+    next unless File.read("/proc/#{pid}/cmdline").include?("/bin/ExeFile.exe")
+    begin
+      fds = "/proc/#{pid}/fd"
+      Dir.foreach(fds) do |fd|
+        next unless fd.match(/^\d+$/)
+        path = File.readlink("#{fds}/#{fd}")
+        return path if path.start_with?(path_prefix)
+      end
+    rescue Errno::EACCES
+    end
+  end
+  nil
+end
+
 def is_log_for(path, char_name)
   ok = nil
   File.open(path) do |file|
@@ -199,9 +218,8 @@ begin
   end
   loop do
     unless intel_log
-      intel_filename = find_latest(INTEL_LOG_DIR) { |path, date|
-        from_this_week(date) && path.include?("/#{INTEL_LOG_PREFIX}")
-      }
+      intel_filename = find_open_chatlog(INTEL_LOG_DIR, INTEL_LOG_PREFIX)
+      raise "no intel chatlog found" unless intel_filename
       puts "Opening #{intel_filename}"
       intel_log = listen(notifier, intel_filename, "rb:UTF-16LE",
                       proc do intel_log = nil end) do |lines|
