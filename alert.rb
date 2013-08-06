@@ -230,9 +230,8 @@ begin
     end
     if select([notifier_io], [], [notifier_io], 5)
       notifier.process
-    else
-      game_log_states.each(&:idle)
     end
+    game_log_states.each(&:idle)
   end
 ensure
   files.each do |f| f.close end
