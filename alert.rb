@@ -72,7 +72,8 @@ class GameLogState
   NO_OUT_DMG_TIME = 40
   IDLE_TIME = 20
 
-  def initialize()
+  def initialize(char_name)
+    @char_name = char_name
     @last_incoming =
     @last_outgoing =
     @last_msg      =
@@ -96,7 +97,7 @@ class GameLogState
 
   def check_fancy_rat(line)
     if FANCY_RAT_NAMES.any? {|r| line.include?(r)} && @now - @last_dg > 300
-      send_notification("Dread Gurista spotted")
+      notify_("Dread Gurista spotted")
       @last_msg = @last_dg = @now
     end
   end
@@ -113,9 +114,13 @@ class GameLogState
 
   private
 
+  def notify_(msg)
+      send_notification("#{@char_name}: #{msg}")
+  end
+
   def notify(msg, timeout = 30)
     if @now - @last_msg > timeout
-      send_notification(msg)
+      notify_(msg)
       @last_msg = @now
     end
   end
@@ -157,9 +162,7 @@ class GameLogState
   end
 end
 
-game_log_state = GameLogState.new
-
-char_name = ARGV.shift.encode(Encoding::UTF_8)
+char_names = ARGV.shift.encode(Encoding::UTF_8).split(',')
 system_names = ARGV.map{|arg| /\b#{arg}\S*/i }
 if system_names.empty?
   raise "no system names given"
@@ -167,11 +170,6 @@ end
 
 intel_filename = find_latest(INTEL_LOG_DIR) { |path, date|
   from_this_week(date) && path.include?("/#{INTEL_LOG_PREFIX}")
-}
-
-game_filename = find_latest(GAME_LOG_DIR) { |path, date|
-  from_this_week(date) && path.end_with?(".txt") &&
-    is_log_for(path, char_name)
 }
 
 ping_at_exit = true
@@ -213,10 +211,18 @@ begin
       end
     end
   end
-  files << listen(notifier, game_filename, nil) do |lines|
-    lines.each do |line|
-
-      game_log_state.feed(line)
+  game_log_states = []
+  char_names.each do |char_name|
+    game_filename = find_latest(GAME_LOG_DIR) { |path, date|
+      from_this_week(date) && path.end_with?(".txt") &&
+        is_log_for(path, char_name)
+    }
+    puts "Opening #{game_filename} for #{char_name}"
+    game_log_states << game_log_state = GameLogState.new(char_name)
+    files << listen(notifier, game_filename, nil) do |lines|
+      lines.each do |line|
+        game_log_state.feed(line)
+      end
     end
   end
   loop do
@@ -224,7 +230,7 @@ begin
     if select([notifier_io], [], [notifier_io], 5)
       notifier.process
     else
-      game_log_state.idle
+      game_log_states.each(&:idle)
     end
   end
 ensure
