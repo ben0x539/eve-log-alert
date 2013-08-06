@@ -168,10 +168,6 @@ if system_names.empty?
   raise "no system names given"
 end
 
-intel_filename = find_latest(INTEL_LOG_DIR) { |path, date|
-  from_this_week(date) && path.include?("/#{INTEL_LOG_PREFIX}")
-}
-
 ping_at_exit = true
 Signal.trap('INT') do
   ping_at_exit = false
@@ -183,34 +179,10 @@ end
 
 files = []
 last_alert_sound = 0
-done = false
+intel_log = nil
 begin
   files << notifier = INotify::Notifier.new
   notifier_io = notifier.to_io
-  files << listen(notifier, intel_filename, "rb:UTF-16LE",
-                  lambda do done = false end) do |lines|
-    lines.delete_if { |line|
-      line_ = line[(line.index('>') or 0)+2..-1]
-      !system_names.any? { |sys|
-        if sys.match(line)
-          line__ = line_.gsub(sys, '')
-          line__.gsub!(/[\s.,!]+/, '')
-          ! /(cl(ea)?r|status\??|blue)$/i.match(line__)
-        end
-      }
-    }
-    lines.each do |line|
-      # "<feff>[ 2013.04.15 14:53:52 ] "
-      line.slice!(0, 25)
-    end
-    unless lines.empty?
-      now = Time.now.to_i
-      if now - last_alert_sound > 5
-        send_notification("#{INTEL_LOG_PREFIX}: #{lines.join("\n")}")
-        last_alert_sound = now
-      end
-    end
-  end
   game_log_states = []
   char_names.each do |char_name|
     game_filename = find_latest(GAME_LOG_DIR) { |path, date|
@@ -226,7 +198,36 @@ begin
     end
   end
   loop do
-    break if done
+    unless intel_log
+      intel_filename = find_latest(INTEL_LOG_DIR) { |path, date|
+        from_this_week(date) && path.include?("/#{INTEL_LOG_PREFIX}")
+      }
+      puts "Opening #{intel_filename}"
+      intel_log = listen(notifier, intel_filename, "rb:UTF-16LE",
+                      proc do intel_log = nil end) do |lines|
+        lines.delete_if { |line|
+          line_ = line[(line.index('>') or 0)+2..-1]
+          !system_names.any? { |sys|
+            if sys.match(line)
+              line__ = line_.gsub(sys, '')
+              line__.gsub!(/[\s.,!]+/, '')
+              ! /(cl(ea)?r|status\??|blue)$/i.match(line__)
+            end
+          }
+        }
+        lines.each do |line|
+          # "<feff>[ 2013.04.15 14:53:52 ] "
+          line.slice!(0, 25)
+        end
+        unless lines.empty?
+          now = Time.now.to_i
+          if now - last_alert_sound > 5
+            send_notification("#{INTEL_LOG_PREFIX}: #{lines.join("\n")}")
+            last_alert_sound = now
+          end
+        end
+      end
+    end
     if select([notifier_io], [], [notifier_io], 5)
       notifier.process
     else
@@ -235,5 +236,6 @@ begin
   end
 ensure
   files.each do |f| f.close end
+  intel_log.close if intel_log
 end
 
