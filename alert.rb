@@ -6,6 +6,14 @@ require 'rb-inotify'
 
 Dir.chdir(File.dirname(__FILE__))
 
+UNIVERSE_DB_PATH = "universeDataDx.db"
+has_db = File.exists?(UNIVERSE_DB_PATH) &&
+  begin
+    require 'sqlite3'
+  rescue LoadError
+    false
+  end
+
 def find_latest(dir)
   latest, latest_mtime = nil
 
@@ -181,8 +189,54 @@ class GameLogState
   end
 end
 
+def systems_by_distance(distance)
+  db = SQLite3::Database.new(UNIVERSE_DB_PATH)
+  systems = {}
+  distance.each do |sys, dist|
+    found = nil
+    db.execute(<<-END, sys, dist) do |row|
+      WITH RECURSIVE
+        "neighbors" ("name", "distance") AS (
+          SELECT "solarSystemName", 0
+            FROM "mapSolarSystems"
+            WHERE "solarSystemName" = ?
+          UNION
+          SELECT "t"."solarSystemName", "n"."distance" + 1
+            FROM "neighbors" "n",
+                "mapSolarSystems" "f"
+                JOIN "mapSolarSystemJumps" "j"
+                     ON "f"."solarSystemID" = "j"."fromSolarSystemID"
+                JOIN "mapSolarSystems" "t"
+                     ON "j"."toSolarSystemID" = "t"."solarSystemID"
+            WHERE "f"."solarSystemName" = "n"."name" AND "n"."distance" < ?)
+      SELECT "name", "distance" FROM "neighbors";
+    END
+      found = (systems[row[0]] ||= [sys, row[1]])
+    end
+    raise "No system found: #{sys}" unless found
+  end
+  systems.each_pair do |system, (origin, distance)|
+    puts "Watching for #{system}: #{distance} jumps from #{origin}"
+  end
+  systems.keys.map {|system| /#{system}/i}
+end
+
 char_names = ARGV.shift.encode(Encoding::UTF_8).split(',')
-system_names = ARGV.map{|arg| /\b#{arg}\S*/i }
+
+system_names = []
+distance = {}
+ARGV.each do |arg|
+  if p = arg.index("+")
+    raise "Cannot do distance-based intel filtering "\
+          "without sqlite + the EVE universe DB" unless has_db
+    sys, dist = arg[0...p], arg[p+1..-1].to_i
+    distance[sys] = dist
+  else
+    system_names << /\b#{arg}\S*/i
+  end
+end
+system_names += systems_by_distance(distance)
+
 if system_names.empty?
   raise "no system names given"
 end
