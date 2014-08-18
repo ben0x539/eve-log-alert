@@ -108,12 +108,19 @@ class GameLogState
     @last_idle = @last_dg = Time.at(0)
     @dmg_taken = []
     @under_attack_since = nil
+    @docked = true
   end
 
   def feed(line)
     @now = Time.now
+    if line.match(/\[ \d{4}\.\d\d\.\d\d \d\d:\d\d:\d\d \] \(notify\) Your docking request has been accepted/)
+      dock(true)
+    elsif line.match(/\[ \d{4}\.\d\d\.\d\d \d\d:\d\d:\d\d \] \(None\) Undocking from /)
+      dock(false)
+    end
     return unless
       line.match(/\[ \d{4}\.\d\d\.\d\d \d\d:\d\d:\d\d \] \(combat\) /)
+    @docked = false
     line = line[33..-1]
     line.gsub!(/<[^>]+>/, '')
 
@@ -130,6 +137,7 @@ class GameLogState
   end
 
   def idle()
+    return if @docked
     @now = Time.now
     last = [@last_incoming, @last_outgoing].max
     if @now - last > IDLE_TIME && @now - @last_idle > 120
@@ -139,7 +147,21 @@ class GameLogState
     end
   end
 
+  def docked?()
+    @docked
+  end
+
   private
+
+  def dock(docked)
+    @docked = docked
+    if docked
+      notify_("docking up; disabling notifications")
+    else
+      notify_("undocking; enabling notifications")
+      @last_idle = @now = Time.now
+    end
+  end
 
   def notify_(msg)
       send_notification("#{@char_name}: #{msg}")
@@ -306,7 +328,7 @@ begin
           # "<feff>[ 2013.04.15 14:53:52 ] "
           line.slice!(0, 25)
         end
-        unless lines.empty?
+        unless lines.empty? || game_log_states.all?(&:docked?)
           now = Time.now.to_i
           if now - last_alert_sound > 5
             send_notification("#{INTEL_LOG_PREFIX}: #{lines.join("\n")}")
