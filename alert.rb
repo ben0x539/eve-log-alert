@@ -211,14 +211,27 @@ def systems_by_distance(distance)
             WHERE "f"."solarSystemName" = "n"."name" AND "n"."distance" < ?)
       SELECT "name", "distance" FROM "neighbors";
     END
-      found = (systems[row[0]] ||= [sys, row[1]])
+      name = row[0]
+      distance = row[1]
+      mangled_name = name.dup
+      mangled_name.gsub!(/^(.{3,})-.*/, '\1') # VFK, ZOY etc
+      mangled_name.gsub!(/^(..-).*/, '\1')    # JU-, 0P- etc
+      mangled_name.gsub!(/^(....).*/, '\1')   # Named systems I guess
+      mangled_name.gsub!(/[I1]/, "[I1]")      # I30-  -> 130
+      mangled_name.gsub!(/[O0]/, "[O0]")      # 209G -> 2O9G
+      mangled_name.gsub!(/[S5]/, "[S5]")      # 209G -> 2O9G
+      mangled_name.gsub!(/[G6]/, "[G6]")      # 2O96 -> 2O9G
+      found = (systems[name] ||= [sys, distance, mangled_name])
     end
     raise "No system found: #{sys}" unless found
   end
-  systems.each_pair do |system, (origin, distance)|
-    puts "Watching for #{system}: #{distance} jumps from #{origin}"
+  result = []
+  systems.each_pair do |system, (origin, distance, mangled_name)|
+    puts "Watching for #{system}: #{distance} jumps from #{origin}," \
+         " matching as #{mangled_name}"
+    result << mangled_name
   end
-  systems.keys.map {|system| /#{system}/i}
+  result
 end
 
 char_names = ARGV.shift.encode(Encoding::UTF_8).split(',')
@@ -232,10 +245,11 @@ ARGV.each do |arg|
     sys, dist = arg[0...p], arg[p+1..-1].to_i
     distance[sys] = dist
   else
-    system_names << /\b#{arg}\S*/i
+    system_names << arg
   end
 end
 system_names += systems_by_distance(distance)
+system_names.map!{|arg| /\b#{arg}\S*/i}
 
 if system_names.empty?
   raise "no system names given"
