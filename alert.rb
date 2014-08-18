@@ -190,6 +190,7 @@ end
 ping_at_exit = true
 Signal.trap('INT') do
   ping_at_exit = false
+  puts
   exit
 end
 at_exit do
@@ -226,7 +227,7 @@ begin
         lines.delete_if { |line|
           line_ = line[(line.index('>') or 0)+2..-1]
           !system_names.any? { |sys|
-            if sys.match(line)
+            if sys.match(line_)
               line__ = line_.gsub(sys, '')
               line__.gsub!(/[\s.,!]+/, '')
               ! /(cl(ea)?r|status\??|blue)$/i.match(line__)
