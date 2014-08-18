@@ -27,7 +27,7 @@ def find_open_chatlog(dir, prefix)
   found = nil
   Dir.foreach('/proc') do |pid|
     next unless pid.match(/^\d+$/)
-    next unless File.read("/proc/#{pid}/cmdline").include?("/bin/ExeFile.exe")
+    next unless File.read("/proc/#{pid}/cmdline").match(/([\/\\]|^)bin[\/\\]ExeFile.exe/i)
     begin
       fds = "/proc/#{pid}/fd"
       Dir.foreach(fds) do |fd|
