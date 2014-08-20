@@ -99,8 +99,10 @@ def panic(msg)
   system "notify-send", msg
   return if $currently_panicking
   Thread.new do
+    file = "frogsiren"
+    file "alertsound" unless File.exists?(file)
     loop do
-      $currently_panicking = Process.spawn("aplay", "frogsiren",
+      $currently_panicking = Process.spawn("aplay", file,
                           [:in, :out, :err] => :close)
       Process.wait($currently_panicking)
       break unless $currently_panicking
