@@ -93,6 +93,21 @@ def send_notification(msg)
   Process.detach(pid)
 end
 
+$currently_panicking = nil
+def panic(msg)
+  puts "#{Time.now.strftime('%H:%M')}: #{msg}"
+  system "notify-send", msg
+  return if $currently_panicking
+  Thread.new do
+    loop do
+      $currently_panicking = Process.spawn("aplay", "frogsiren",
+                          [:in, :out, :err] => :close)
+      Process.wait($currently_panicking)
+      break unless $currently_panicking
+    end
+  end
+end
+
 class GameLogState
   FANCY_RAT_NAMES = ["Dread Gurista"]
   NO_INC_DMG_TIME = 20
@@ -124,16 +139,11 @@ class GameLogState
     line = line[33..-1]
     line.gsub!(/<[^>]+>/, '')
 
+    check_player_attack(line)
+
     check_fancy_rat(line)
 
     note_damage(line)
-  end
-
-  def check_fancy_rat(line)
-    if FANCY_RAT_NAMES.any? {|r| line.include?(r)} && @now - @last_dg > 300
-      notify_("Dread Gurista spotted")
-      @last_msg = @last_dg = @now
-    end
   end
 
   def idle()
@@ -167,10 +177,37 @@ class GameLogState
       send_notification("#{@char_name}: #{msg}")
   end
 
+  def notify_player_attack(msg)
+      panic("#{@char_name}: #{msg}")
+  end
+
   def notify(msg, timeout = 30)
     if @now - @last_msg > timeout
       notify_(msg)
       @last_msg = @now
+    end
+  end
+
+  def check_player_attack(line)
+    # idea here is to not match plain NPC names like "Dire Pithi Whatever"
+    # but match player names that are likely to have an overview-pack
+    # specific sort of bracket or &lt; hyphen or whatever in them for corp tags
+    # or shiptypes or whatever
+    line_noise = "[-\\[<&;(]"
+    case line
+    when /Warp scramble attempt from .*?#{line_noise}/
+      notify_player_attack("tackled by player!")
+    when /belonging to .*? misses you completely/
+      notify_player_attack("shot by player!")
+    when /\d+ from .*?#{line_noise}.*? - .*? - [A-Za-z ]+$/
+      notify_player_attack("shot by player!")
+    end
+  end
+
+  def check_fancy_rat(line)
+    if FANCY_RAT_NAMES.any? {|r| line.include?(r)} && @now - @last_dg > 300
+      notify_("Dread Gurista spotted")
+      @last_msg = @last_dg = @now
     end
   end
 
@@ -279,9 +316,15 @@ end
 
 ping_at_exit = true
 Signal.trap('INT') do
-  ping_at_exit = false
-  puts
-  exit
+  if $currently_panicking
+    pid = $currently_panicking
+    $currently_panicking = nil
+    Process.kill('INT', pid)
+  else
+    ping_at_exit = false
+    puts
+    exit
+  end
 end
 at_exit do
   send_notification("exiting") if ping_at_exit
